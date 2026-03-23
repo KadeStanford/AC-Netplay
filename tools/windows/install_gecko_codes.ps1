@@ -62,7 +62,7 @@ function Read-GeckoBlocks([string]$Path) {
     }
 
     if ($names.Count -eq 0) {
-        throw "No Gecko code blocks were found in: $Path"
+        return $null
     }
 
     return @{
@@ -205,6 +205,10 @@ if (-not (Test-Path $gameSettingsDir)) {
 }
 
 $codeData = Read-GeckoBlocks -Path $CodeFilePath
+if ($null -eq $codeData) {
+    Write-Host "No Gecko codes to install (file has comments only). Skipping." -ForegroundColor DarkGray
+    return
+}
 $codeNames = $codeData.Names
 $newGeckoLines = $codeData.GeckoLines
 
