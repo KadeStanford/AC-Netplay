@@ -60,9 +60,11 @@ function Ensure-Repo([string]$TargetDir, [string]$GitRepoUrl) {
 }
 
 function Resolve-RepoRoot() {
-    $scriptRepoCandidate = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-    if (Test-RepoRoot $scriptRepoCandidate) {
-        return $scriptRepoCandidate
+    if ($PSScriptRoot) {
+        $scriptRepoCandidate = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+        if (Test-RepoRoot $scriptRepoCandidate) {
+            return $scriptRepoCandidate
+        }
     }
 
     $cwdCandidate = (Get-Location).Path
