@@ -115,12 +115,25 @@ Dolphin's built-in netplay uses **input synchronisation** (frame-by-frame rollba
 
 Rather than syncing inputs, AC-Netplay syncs **high-level game state**:
 
-1. The client polls Dolphin RAM ~30 times/second for the local player's state (position, animation, held item, appearance).
-2. That state is packaged into a compact JSON or binary packet and sent to the relay server.
-3. The relay server broadcasts each player's state to all other players in the same room.
-4. Each client writes received states into the appropriate visitor NPC slots in Dolphin's RAM.
+1. The **host** runs Animal Crossing normally in their own town with the gate open.
+2. The **visitor** connects to the relay server in the same room as the host.
+3. Upon connection, the host sends a `TOWN_DATA` packet containing their entire
+   town grid (terrain + placed items, 21 KB) encoded as Base64.
+4. The visitor's client writes the host's town grid into their own Dolphin RAM
+   at `0x803C0000`, instantly making the visitor's game render the host's town.
+5. The visitor's character is teleported to the gate-arrival position, placing
+   them inside the host's town.
+6. Both the host and the visitor then continuously exchange `PLAYER_STATE`
+   packets at ~30 Hz.  Each client writes the remote player's state into a
+   visitor-actor NPC slot in their own game, so both characters are visible in
+   the same town simultaneously.
 
-This tolerates up to ~200 ms of network latency without perceptible stuttering, because Animal Crossing's pace is slow (walking speed, turn-based item interactions).
+**Result:** Both players are physically present in the host's town at the same
+time — the host sees the visitor walking around as a visitor NPC, and the
+visitor sees the host's town layout with the host's character also present.
+
+This tolerates up to ~200 ms of network latency without perceptible stuttering
+because Animal Crossing's movement pace is slow.
 
 ### Synchronisation Points
 

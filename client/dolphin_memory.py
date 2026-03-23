@@ -19,7 +19,7 @@ from typing import Optional
 
 import psutil
 
-from state import PlayerState, AppearanceState
+from state import PlayerState, AppearanceState, TownData
 
 logger = logging.getLogger("ac_netplay.dolphin_memory")
 
@@ -47,6 +47,14 @@ GATE_STATE_ADDR = 0x803B8000
 TOWN_GRID_ADDR = 0x803C0000
 TOWN_WIDTH = 112   # tiles
 TOWN_HEIGHT = 96   # tiles
+
+# Total byte size of the town grid in RAM
+TOWN_GRID_SIZE = TOWN_WIDTH * TOWN_HEIGHT * 2  # 21,504 bytes
+
+# World-space position where a visitor's character is placed when the host
+# town data is applied.  This is near the train-station / gate entrance in
+# the southern-centre of the town map.
+VISITOR_ARRIVAL_POS = (56.0, 0.0, 80.0)  # (X, Y, Z)
 
 # In-memory actor pointer chain for local player
 ACTOR_MANAGER_PTR_ADDR = 0x803FFFE0
@@ -255,9 +263,10 @@ class DolphinMemory:
         # Minimal implementation: delegate to a helper that uses task_for_pid
         # For now, raise a clear error pointing users to a workaround.
         raise NotImplementedError(
-            "macOS memory access requires running the client as root or granting "
-            "com.apple.security.cs.debugger entitlement to the terminal. "
-            "See docs/SETUP.md for details."
+            "macOS memory access requires the terminal app to be granted access "
+            "to Dolphin under System Preferences → Security & Privacy → Privacy "
+            "→ Developer Tools (macOS 13+). "
+            "See docs/SETUP.md § 'Part 1 — Dolphin Configuration' for details."
         )
 
     # ------------------------------------------------------------------
@@ -491,3 +500,55 @@ class DolphinMemory:
         """Place an item on the town grid tile."""
         addr = TOWN_GRID_ADDR + (tile_z * TOWN_WIDTH + tile_x) * 2
         self.write_u16(addr, item_code)
+
+    # ------------------------------------------------------------------
+    # Town snapshot — read / write the full town grid
+    # ------------------------------------------------------------------
+
+    def read_town_grid(self) -> bytes:
+        """Read the full town grid from GC RAM (21,504 bytes, big-endian u16 array)."""
+        return self._read(TOWN_GRID_ADDR, TOWN_GRID_SIZE)
+
+    def write_town_grid(self, data: bytes) -> None:
+        """
+        Write a complete town grid into GC RAM.
+
+        *data* must be exactly TOWN_GRID_SIZE (21,504) bytes.
+        This immediately updates the terrain / surface items the game renders.
+        """
+        if len(data) != TOWN_GRID_SIZE:
+            raise ValueError(
+                f"Town grid must be {TOWN_GRID_SIZE} bytes, got {len(data)}"
+            )
+        self._write(TOWN_GRID_ADDR, data)
+
+    def read_town_snapshot(self, slot: int = 0) -> "TownData":
+        """
+        Read the current town grid and town name into a :class:`TownData` object.
+
+        Used by the *host* to capture and send their town to a joining visitor.
+        """
+        return TownData(
+            town_name=self.read_town_name(slot),
+            grid_bytes=self.read_town_grid(),
+        )
+
+    def teleport_local_player(
+        self, slot: int, x: float, y: float, z: float
+    ) -> None:
+        """
+        Set the local player's world-space position.
+
+        Used on the *visitor* side to place the visitor's character at the
+        correct arrival spot in the host's town after town data is applied.
+        """
+        actor = self._resolve_player_actor(slot)
+        if actor is None:
+            logger.debug("teleport_local_player: actor not found for slot %d", slot)
+            return
+        try:
+            self.write_f32(actor + ACT_POS_X, x)
+            self.write_f32(actor + ACT_POS_Y, y)
+            self.write_f32(actor + ACT_POS_Z, z)
+        except (OSError, struct.error, ValueError) as e:
+            logger.debug("teleport_local_player slot=%d: %s", slot, e)

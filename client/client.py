@@ -20,8 +20,8 @@ from typing import Optional
 
 import websockets
 
-from dolphin_memory import DolphinMemory
-from state import PlayerState, AppearanceState, GameEvent
+from dolphin_memory import DolphinMemory, VISITOR_ARRIVAL_POS
+from state import PlayerState, AppearanceState, GameEvent, TownData
 
 logger = logging.getLogger("ac_netplay.client")
 
@@ -55,8 +55,12 @@ class NetplayClient:
         self.dolphin_pid = dolphin_pid
 
         self.mem: Optional[DolphinMemory] = None
-        self.websocket: Optional[websockets.WebSocketClientProtocol] = None
+        self.websocket = None
         self.player_id: Optional[str] = None
+
+        # Role in the current session: True = hosting the town, False = visiting
+        self._is_host: bool = False
+        self._host_player_id: Optional[str] = None
 
         # { player_id: list of (ts, PlayerState) } — interpolation buffer
         self._remote_states: dict[str, list[tuple[float, PlayerState]]] = {}
@@ -136,6 +140,12 @@ class NetplayClient:
         player_count = len(msg.get("players", []))
         logger.info("Joined room '%s' (%d player(s))", self.room, player_count)
 
+        # Determine role: host if the room's host_id is our own player_id.
+        # The first player to create the room becomes the host.
+        self._host_player_id = msg.get("host")
+        self._is_host = (self._host_player_id == self.player_id)
+        logger.info("Role: %s", "host" if self._is_host else "visitor")
+
         # Send initial appearance
         appearance = self.mem.read_appearance(self.player_slot)
         await ws.send(json.dumps({"type": "APPEARANCE", **appearance.to_dict()}))
@@ -210,6 +220,16 @@ class NetplayClient:
             elif msg_type == "PLAYER_JOINED":
                 logger.info("Player joined: %s (%s)", msg.get("player_name"), pid)
                 self._ensure_visitor_slot(pid)
+                # If we are the host, immediately send our town data so the
+                # joining visitor's game can render our town.
+                if self._is_host and self.mem:
+                    await self._send_town_data()
+
+            elif msg_type == "TOWN_DATA":
+                # Visitor receives the host's town snapshot.
+                if not self._is_host and self.mem:
+                    td = TownData.from_dict(msg)
+                    await self._apply_town_data(td)
 
             elif msg_type == "PLAYER_LEFT":
                 logger.info("Player left: %s", pid)
@@ -258,6 +278,69 @@ class NetplayClient:
             self.mem.write_gate_state(1)
         elif event.event == "GATE_CLOSE":
             self.mem.write_gate_state(0)
+        elif event.event == "HOST_CHANGED":
+            # Server transferred host role to us (e.g. original host disconnected)
+            if event.player_id == self.player_id:
+                self._is_host = True
+                self._host_player_id = self.player_id
+                logger.info("We became the new host")
+
+    # ------------------------------------------------------------------
+    # Town data helpers
+    # ------------------------------------------------------------------
+
+    async def _send_town_data(self) -> None:
+        """
+        (Host only) Read current town data from RAM and broadcast to room.
+
+        Called automatically when a new visitor joins so their game can
+        render the host's town immediately.
+        """
+        if not self.mem or not self.websocket:
+            return
+        try:
+            td = self.mem.read_town_snapshot(self.player_slot)
+        except Exception as exc:
+            logger.warning("Could not read town snapshot: %s", exc)
+            return
+        payload = {"type": "TOWN_DATA", **td.to_dict()}
+        await self.websocket.send(json.dumps(payload))
+        logger.info(
+            "Sent town data to room (town='%s', grid=%d bytes)",
+            td.town_name, len(td.grid_bytes),
+        )
+
+    async def _apply_town_data(self, td: TownData) -> None:
+        """
+        (Visitor only) Write the host's town data into our Dolphin RAM.
+
+        This makes the visitor's game render the host's town instead of
+        their own, achieving true co-presence in the same town.
+        """
+        if not self.mem:
+            return
+        if not td.is_valid():
+            logger.warning(
+                "Received TOWN_DATA with invalid grid size (%d bytes, expected %d)",
+                len(td.grid_bytes), TownData.GRID_SIZE,
+            )
+            return
+        try:
+            self.mem.write_town_grid(td.grid_bytes)
+            logger.info(
+                "Applied host town grid (town='%s', %d bytes)",
+                td.town_name, len(td.grid_bytes),
+            )
+        except Exception as exc:
+            logger.warning("write_town_grid failed: %s", exc)
+            return
+
+        # Teleport our character to the arrival point in the host's town
+        x, y, z = VISITOR_ARRIVAL_POS
+        self.mem.teleport_local_player(self.player_slot, x, y, z)
+        logger.info(
+            "Teleported to host town arrival position (%.1f, %.1f, %.1f)", x, y, z
+        )
 
     # ------------------------------------------------------------------
     # Visitor slot management

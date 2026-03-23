@@ -29,28 +29,28 @@ Every message is a JSON object with at least a `type` field:
 ## Connection Lifecycle
 
 ```
-Client                    Server
-  │                          │
-  │──── HELLO ──────────────►│
-  │◄─── WELCOME / ERROR ─────│
-  │                          │
-  │──── JOIN_ROOM ──────────►│
-  │◄─── ROOM_STATE ──────────│  (current players in room)
-  │◄─── PLAYER_JOINED ───────│  (broadcast to others)
-  │                          │
-  │     [gameplay loop]       │
-  │──── PLAYER_STATE ───────►│  (repeated ~30 Hz)
-  │◄─── PLAYER_STATE ────────│  (from other players)
-  │──── GAME_EVENT ─────────►│
-  │◄─── GAME_EVENT ──────────│
-  │──── CHAT ───────────────►│
-  │◄─── CHAT ────────────────│
-  │                          │
-  │──── LEAVE_ROOM ─────────►│
-  │◄─── PLAYER_LEFT ─────────│  (broadcast to others)
-  │                          │
-  │──── BYE ────────────────►│
-  │  [WebSocket close]        │
+Host                      Server                    Visitor
+  │                          │                          │
+  │──── HELLO ──────────────►│      HELLO ─────────────►│
+  │◄─── WELCOME ─────────────│◄─────WELCOME ────────────│
+  │                          │                          │
+  │──── JOIN_ROOM ──────────►│      JOIN_ROOM ──────────►│
+  │◄─── ROOM_STATE ──────────│◄─────ROOM_STATE ──────────│
+  │                          │      (host_id set)        │
+  │                          │◄─────PLAYER_JOINED ───────│  broadcast to host
+  │                          │                          │
+  │──── TOWN_DATA ──────────►│─────►TOWN_DATA ──────────►│  (host sends town)
+  │                          │                          │
+  │     [gameplay loop]       │                          │
+  │──── PLAYER_STATE ───────►│─────►PLAYER_STATE ───────►│  (~30 Hz)
+  │◄─── PLAYER_STATE ────────│◄─────PLAYER_STATE ────────│  (~30 Hz)
+  │──── GAME_EVENT ─────────►│─────►GAME_EVENT ──────────►│
+  │◄─── GAME_EVENT ──────────│◄─────GAME_EVENT ──────────│
+  │──── CHAT ───────────────►│─────►CHAT ────────────────►│
+  │◄─── CHAT ────────────────│◄─────CHAT ────────────────│
+  │                          │                          │
+  │◄─── PLAYER_LEFT ─────────│◄─────LEAVE_ROOM ──────────│
+  │──── BYE ────────────────►│      BYE ────────────────►│
 ```
 
 ---
@@ -208,6 +208,32 @@ Discrete game events (item pickup/drop, entering building, etc.).
 | `GATE_OPEN` | Host opened the gate |
 | `GATE_CLOSE` | Host closed the gate |
 | `TIME_SYNC` | Host broadcasts current in-game time |
+
+#### `TOWN_DATA`
+
+Sent by the **host** immediately after receiving a `PLAYER_JOINED` broadcast.
+Carries the host's full town grid so the visitor's Dolphin can render the
+host's town and achieve true co-presence.
+
+The `grid` field is the raw town grid (96 × 112 × 2 = 21,504 bytes, big-endian
+`u16` item codes) encoded as a **Base64** string (~28 KB).
+
+```json
+{
+  "type": "TOWN_DATA",
+  "town_name": "Timberland",
+  "grid": "<base64-encoded 21,504 bytes>"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `town_name` | string | Host's town name (max 6 chars, AC encoding) |
+| `grid` | string | Base64-encoded town grid (exactly 21,504 bytes decoded) |
+
+**Visitor behaviour on receipt:** write the grid to `0x803C0000` in Dolphin RAM,
+then teleport the local player character to the gate-arrival position
+`(56.0, 0.0, 80.0)` so they are inside the host's town.
 
 #### `CHAT`
 

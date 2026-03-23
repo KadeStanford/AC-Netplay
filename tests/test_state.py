@@ -10,7 +10,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "client"))
 
 import pytest
-from state import PlayerState, AppearanceState, GameEvent
+from state import PlayerState, AppearanceState, GameEvent, TownData
 
 
 class TestPlayerState:
@@ -177,3 +177,63 @@ class TestGameEvent:
         for ev in ("ITEM_PICKUP", "ITEM_DROP", "GATE_OPEN", "GATE_CLOSE",
                    "ENTER_BUILDING", "EXIT_BUILDING", "TIME_SYNC"):
             assert ev in GameEvent.KNOWN_EVENTS
+
+
+class TestTownData:
+    """Tests for TownData — the host→visitor town grid transfer."""
+
+    VALID_GRID = bytes(TownData.GRID_SIZE)  # all-zero grid, correct size
+
+    def test_default_is_invalid(self):
+        td = TownData()
+        assert not td.is_valid()
+        assert td.town_name == ""
+        assert td.grid_bytes == b""
+
+    def test_valid_grid_size(self):
+        td = TownData(town_name="TestTown", grid_bytes=self.VALID_GRID)
+        assert td.is_valid()
+
+    def test_invalid_grid_wrong_size(self):
+        td = TownData(town_name="TestTown", grid_bytes=b"\x00" * 100)
+        assert not td.is_valid()
+
+    def test_grid_size_constant(self):
+        assert TownData.GRID_SIZE == 96 * 112 * 2  # 21,504 bytes
+
+    def test_roundtrip_empty_grid(self):
+        td = TownData(town_name="MyTown", grid_bytes=self.VALID_GRID)
+        d = td.to_dict()
+        restored = TownData.from_dict(d)
+        assert restored.town_name == "MyTown"
+        assert restored.grid_bytes == self.VALID_GRID
+        assert restored.is_valid()
+
+    def test_roundtrip_with_items(self):
+        """Grid containing non-zero item codes survives base64 round-trip."""
+        import struct
+        # Build a grid where tile (0,0) has item code 0x2009 and rest are zero
+        grid = bytearray(TownData.GRID_SIZE)
+        struct.pack_into(">H", grid, 0, 0x2009)
+        td = TownData(town_name="Leaf", grid_bytes=bytes(grid))
+        restored = TownData.from_dict(td.to_dict())
+        assert restored.grid_bytes == bytes(grid)
+        assert struct.unpack_from(">H", restored.grid_bytes, 0)[0] == 0x2009
+
+    def test_from_dict_missing_grid(self):
+        td = TownData.from_dict({"town_name": "X"})
+        assert td.grid_bytes == b""
+        assert not td.is_valid()
+
+    def test_from_dict_bad_base64_gives_empty(self):
+        td = TownData.from_dict({"town_name": "X", "grid": "!!!not_base64!!!"})
+        assert td.grid_bytes == b""
+
+    def test_to_dict_type_tag(self):
+        td = TownData(town_name="X", grid_bytes=self.VALID_GRID)
+        d = td.to_dict()
+        # Server prepends "type" = "TOWN_DATA"; check the payload fields exist
+        assert "town_name" in d
+        assert "grid" in d
+        # Base64 string for all-zero grid should be non-empty
+        assert len(d["grid"]) > 0

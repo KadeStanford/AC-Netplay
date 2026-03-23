@@ -26,13 +26,14 @@ from room import RoomManager, Room, Player
 logger = logging.getLogger("ac_netplay.server")
 
 PROTOCOL_VERSION = "1.0"
-MAX_MESSAGE_BYTES = 8192
+MAX_MESSAGE_BYTES = 65536  # 64 KB — accommodates TOWN_DATA (~28 KB base64)
 
 # Rate-limit buckets (messages/second) per message type
 RATE_LIMITS: dict[str, float] = {
     "PLAYER_STATE": 60.0,
     "GAME_EVENT": 10.0,
     "CHAT": 2.0,
+    "TOWN_DATA": 1.0,   # bulk one-time message; once per second max
     "__default__": 5.0,
 }
 
@@ -129,7 +130,7 @@ class NetplayServer:
                         await self.room_manager.remove_player(room, player)
                         room = None
 
-                elif msg_type in ("PLAYER_STATE", "APPEARANCE", "GAME_EVENT", "CHAT"):
+                elif msg_type in ("PLAYER_STATE", "APPEARANCE", "GAME_EVENT", "CHAT", "TOWN_DATA"):
                     if room and player:
                         await self._relay(room, player, msg)
                     else:

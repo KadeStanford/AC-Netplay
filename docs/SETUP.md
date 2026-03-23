@@ -87,6 +87,8 @@ Anyone can host a relay server. The server needs to be reachable on a public IP 
 
 ```bash
 cd server
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -127,8 +129,13 @@ Then clients connect to `wss://yourdomain.com/netplay`.
 
 ### Install
 
+It is recommended to use a Python virtual environment to avoid polluting your
+system Python installation:
+
 ```bash
 cd client
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -172,22 +179,48 @@ Options:
 
 ## Part 6 — Gameplay Instructions
 
+### How co-presence works
+
+Both players end up **in the host's town at the same time**:
+
+- The **host** stays in their own town throughout.  Their character moves normally.
+- The **visitor's** Dolphin instance automatically receives the host's town data
+  the moment they connect.  The visitor's game renders the host's town (terrain,
+  placed items, furniture), and the visitor's character is placed near the gate
+  so they "arrive" without needing to walk through the train station.
+- On the **host's screen**, the visitor's character appears as a visitor NPC
+  moving in real time.
+- On the **visitor's screen**, the host's character appears as a visitor NPC,
+  and the town layout is the host's town.
+
 ### Hosting a town visit
 
 1. Load your Animal Crossing save.
-2. Start the client with `--name YourName --room YourRoomName`.
-3. Walk to the **gate** (south of town) and talk to Copper.
-4. Choose "Open the gate" — OR let the Gecko code open it automatically.
-5. Tell your friend your server address and room name.
+2. Start the relay server (or use a public one) and share the address.
+3. Start the client:
+   ```bash
+   python client.py --server ws://HOST_IP:9000 --room YourRoomName --name YourName
+   ```
+4. Walk to the **gate** (south of town) and talk to Copper — or let the
+   Gecko code open it automatically.
+5. Tell your friend your server address and room name.  Once they connect,
+   their character will appear in your town automatically.
 
 ### Visiting a town
 
 1. Load your Animal Crossing save.
-2. Start the client with `--name YourName --room TheHostsRoomName`.
-3. Walk to the **train station** (also south of town).
-4. Walk through the station — the client will inject the host town transition.
+2. Start the client pointing to the **same** server and room as the host:
+   ```bash
+   python client.py --server ws://HOST_IP:9000 --room HostsRoomName --name YourName
+   ```
+3. The client will automatically:
+   - Receive the host's town grid and write it to your Dolphin RAM.
+   - Teleport your character to the gate-entrance area of the host's town.
+4. You are now in the host's town.  Walk around, pick up items, and interact
+   with the environment just as you would in your own game.
 
-> **Tip**: Keep both players in the same time zone / season for the best experience. The host's in-game clock is authoritative.
+> **Tip**: Keep both players in the same time zone / season for the best
+> experience. The host's in-game clock is authoritative.
 
 ---
 

@@ -8,6 +8,7 @@ by to_dict() / from_dict() class methods.
 
 from __future__ import annotations
 
+import base64
 import math
 from dataclasses import dataclass, field, asdict
 from typing import Any, Optional
@@ -166,3 +167,45 @@ class GameEvent:
             item_code=int(d.get("item_code", 0)),
             building_id=int(d.get("building_id", 0)),
         )
+
+
+@dataclass
+class TownData:
+    """
+    Snapshot of the host's town sent to the visitor at connection time.
+
+    Contains the town grid (terrain + surface items) and the town name so
+    that the visitor's Dolphin instance can render the host's town.
+
+    The *grid_bytes* field holds the raw town grid read from GC RAM:
+    96 rows × 112 tiles × 2 bytes (big-endian u16 item codes) = 21,504 bytes.
+    It is serialised as a Base64 string for JSON transport.
+    """
+
+    town_name: str = ""
+    grid_bytes: bytes = field(default_factory=bytes)
+
+    # Expected grid size: TOWN_HEIGHT × TOWN_WIDTH × sizeof(u16)
+    GRID_SIZE: int = 96 * 112 * 2  # 21,504 bytes
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "town_name": self.town_name,
+            "grid": base64.b64encode(self.grid_bytes).decode("ascii"),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> TownData:
+        raw = d.get("grid", "")
+        try:
+            grid_bytes = base64.b64decode(raw) if raw else b""
+        except Exception:
+            grid_bytes = b""
+        return cls(
+            town_name=str(d.get("town_name", "")),
+            grid_bytes=grid_bytes,
+        )
+
+    def is_valid(self) -> bool:
+        """Return True if the grid payload is the correct size."""
+        return len(self.grid_bytes) == self.GRID_SIZE
