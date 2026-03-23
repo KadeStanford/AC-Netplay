@@ -1,111 +1,55 @@
-# AC-Netplay Gecko Codes
-# Game: Animal Crossing (GAFE01) — North America
+﻿# AC-Netplay Gecko Codes
+# Game: Animal Crossing (GAFE01) - North America
 # Author: AC-Netplay project
 #
-# Apply via Dolphin Emulator → right-click game → Properties → Gecko Codes
+# Apply via Dolphin Emulator > right-click game > Properties > Gecko Codes
 # Enable all codes in this file for full AC-Netplay functionality.
 #
 # Format: Each code block has a $Name line followed by hex lines.
-# Each hex pair is an 8-digit address followed by an 8-digit value.
+# Each hex pair is an 8-digit code/address + 8-digit value (standard Gecko).
 #
-# For code-type reference, see:
-#   https://wiki.gbatemp.net/wiki/Gecko_Codes_-_Complete_Documentation
+# Gecko addresses use a 6-digit offset from base 0x80000000.
+# Example: to target 0x803B8000, use 043B8000 (04 = write-32, 3B8000 = offset).
 
-# ============================================================
 # [1] Auto-open gate for online visitors
-#
-# Patches the gate-state check so the gate is always treated
-# as "open" when the AC-Netplay flag byte (0x803B8080) is set
-# to 0x01 by the client. Normally the gate requires the player
-# to talk to Copper; this removes that requirement.
-#
-# Code type 06: Memory fill (sets gate-open flag once)
-# ============================================================
+# 04 write-32: set gate-open flag at 0x803B8000 to 0x00000001
 $AC-Netplay: Gate Auto-Open
-04803B8000 00000001
+043B8000 00000001
 
-# ============================================================
 # [2] Increase visitor slots from 1 to 4
-#
-# The vanilla game allows only 1 visitor at a time.
-# This patches the max-visitor counter used during gate
-# availability checks so up to 4 visitors can be present.
-#
-# Code type 04: 32-bit RAM write
-#   Address: 0x803B8001 (visitor count limit byte)
-#   Value:   0x04 (allow 4 visitors)
-# ============================================================
+# 04 write-32: set max-visitor at 0x803B8004
 $AC-Netplay: 4-Player Visitor Slots
-04803B8004 04040404
+043B8004 04040404
 
-# ============================================================
 # [3] Disable memory card visitor check
-#
-# The game normally looks for visitor data on the memory card
-# before spawning a visitor character. This NOP patch skips
-# that check so the client can inject visitor data directly.
-#
-# Code type 04: overwrite BNE branch with NOP (0x60000000)
-# at the branch instruction in the visitor-spawn routine.
-# ⚠ Address verified vs GAFE01 v1.0; update for other versions.
-# ============================================================
+# 04 write-32: NOP the BNE branch at 0x803D1420
 $AC-Netplay: Skip Memory Card Visitor Check
-04803D1420 60000000
+043D1420 60000000
 
-# ============================================================
-# [4] Visitor name display (inject from netplay buffer)
-#
-# Copies the visitor name from a scratch buffer at 0x803BFF00
-# (written by the AC-Netplay client) into the visitor actor's
-# name field every frame so the nametag is correct.
-#
-# Code type C2: Insert ASM at address 0x803D1500
-# The injected code reads 8 bytes from 0x803BFF00 and stores
-# them into the visitor actor name field.
-# ============================================================
+# [4] Visitor name display (inject from netplay buffer at 0x803BFF00)
+# C2 insert-ASM at 0x803D1500 (6 instruction pairs)
 $AC-Netplay: Visitor Name Injection
-C2803D1500 00000006
-3C608003 60638000
-80E3FF00 90E40000
-80C3FF04 90C40004
-80A3FF08 90A40008
-80833F0C 90840008
+C23D1500 00000006
+3C60803C 6063FF00
+80E30000 90E40000
+80C30004 90C40004
+80A30008 90A40008
+8083000C 9084000C
 60000000 00000000
 
-# ============================================================
 # [5] Suppress "no memory card" error for visitor flow
-#
-# When the game can't find visitor data on a memory card it
-# normally shows an error screen. This replaces the error
-# display call with a NOP so gameplay continues normally.
-# ============================================================
+# 04 write-32: NOP the error display call at 0x803D1800
 $AC-Netplay: Suppress Visitor Card Error
-04803D1800 60000000
+043D1800 60000000
 
-# ============================================================
-# [6] Chat overlay — display AC-Netplay messages
-#
-# Reserves a 256-byte region at 0x803BFF80 as a chat text
-# buffer. The client writes null-terminated strings there;
-# this code renders them in the top-left corner of the screen
-# using the game's built-in debug text renderer (enabled in
-# Dolphin via the AR code below).
-#
-# Code type 06: Byte string write — clear the buffer on boot
-# ============================================================
+# [6] Chat overlay - clear 256-byte chat buffer at 0x803BFF80
+# 06 byte-fill: zero 16 bytes at 0x803BFF80
 $AC-Netplay: Chat Buffer Clear
-06803BFF80 00000010
+063BFF80 00000010
 00000000 00000000
 00000000 00000000
 
-# ============================================================
-# [7] Time sync — accept host clock
-#
-# This code lets the AC-Netplay client overwrite the in-game
-# time bytes (hour/minute/second/day/month/year) without the
-# game's own RTC update routine clobbering them each second.
-# It NOPs the RTC→game-time write instruction.
-# ⚠ Offset needs verification with GCN debugger.
-# ============================================================
+# [7] Time sync - accept host clock
+# 04 write-32: NOP the RTC write at 0x803A6F7C
 $AC-Netplay: Time Sync Enable (host clock authoritative)
-04803A6F7C 60000000
+043A6F7C 60000000
