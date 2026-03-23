@@ -125,6 +125,7 @@ Write-Host "Starting host client with room '$RoomName' and name '$PlayerName' ..
 catch {
     Write-Host ""
     Write-Host "ERROR: $_" -ForegroundColor Red
+    Write-Host "  at $($_.InvocationInfo.ScriptName):$($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor DarkGray
     Write-Host ""
 }
 finally {}

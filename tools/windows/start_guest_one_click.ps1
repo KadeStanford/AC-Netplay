@@ -104,6 +104,7 @@ Write-Host "Starting guest client for $serverUrl in room '$RoomName' ..." -Foreg
 catch {
     Write-Host ""
     Write-Host "ERROR: $_" -ForegroundColor Red
+    Write-Host "  at $($_.InvocationInfo.ScriptName):$($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor DarkGray
     Write-Host ""
 }
 finally {}

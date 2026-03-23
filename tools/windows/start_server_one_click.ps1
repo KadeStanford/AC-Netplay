@@ -101,6 +101,7 @@ Write-Host "Starting AC-Netplay server on $BindHost:$Port ..." -ForegroundColor 
 catch {
     Write-Host ""
     Write-Host "ERROR: $_" -ForegroundColor Red
+    Write-Host "  at $($_.InvocationInfo.ScriptName):$($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor DarkGray
     Write-Host ""
 }
 finally {}

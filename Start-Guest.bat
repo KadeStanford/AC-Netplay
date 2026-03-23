@@ -11,6 +11,13 @@ set "INSTALL_DIR=%USERPROFILE%\AC-Netplay"
 set "TARGET_PS1=%INSTALL_DIR%\tools\windows\start_guest_one_click.ps1"
 
 if not exist "%TARGET_PS1%" goto :download
+
+REM Update existing repo
+if exist "%INSTALL_DIR%\.git" (
+    pushd "%INSTALL_DIR%"
+    git pull --ff-only >nul 2>&1
+    popd
+)
 goto :run
 
 :download

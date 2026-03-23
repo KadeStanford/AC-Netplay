@@ -211,8 +211,8 @@ $iniData = Parse-IniFile -Path $iniPath
 Ensure-Section -iniData $iniData -SectionName "Gecko"
 Ensure-Section -iniData $iniData -SectionName "Gecko_Enabled"
 
-$existingGecko = Remove-GeckoCodeBlocks -sectionLines $iniData.Sections["Gecko"] -codeNames $codeNames
-$existingEnabled = Remove-EnabledCodeNames -sectionLines $iniData.Sections["Gecko_Enabled"] -codeNames $codeNames
+$existingGecko = [System.Collections.Generic.List[string]]@(Remove-GeckoCodeBlocks -sectionLines $iniData.Sections["Gecko"] -codeNames $codeNames)
+$existingEnabled = [System.Collections.Generic.List[string]]@(Remove-EnabledCodeNames -sectionLines $iniData.Sections["Gecko_Enabled"] -codeNames $codeNames)
 
 if ($existingGecko.Count -gt 0 -and $existingGecko[$existingGecko.Count - 1].Trim() -ne "") {
     $existingGecko.Add("")
