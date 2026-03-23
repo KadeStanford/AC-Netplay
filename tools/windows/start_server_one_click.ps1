@@ -9,6 +9,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$Host.UI.RawUI.WindowTitle = "AC-Netplay Server"
+
+try {
 
 function Test-RepoRoot([string]$Path) {
     if (-not $Path) { return $false }
@@ -92,4 +95,14 @@ $serverPython = Join-Path $serverVenv "Scripts\python.exe"
 & $serverPython -m pip install -r (Join-Path $serverDir "requirements.txt")
 
 Write-Host "Starting AC-Netplay server on $BindHost:$Port ..." -ForegroundColor Green
-& $serverPython (Join-Path $serverDir "server.py") --host $BindHost --port $Port --log-level $LogLevel
+    & $serverPython (Join-Path $serverDir "server.py") --host $BindHost --port $Port --log-level $LogLevel
+}
+catch {
+    Write-Host ""
+    Write-Host "ERROR: $_" -ForegroundColor Red
+    Write-Host ""
+}
+finally {
+    Write-Host "Press Enter to close this window..."
+    $null = Read-Host
+}

@@ -12,6 +12,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$Host.UI.RawUI.WindowTitle = "AC-Netplay Host"
+
+try {
 
 function Test-RepoRoot([string]$Path) {
     if (-not $Path) { return $false }
@@ -116,4 +119,14 @@ Start-Process powershell -ArgumentList @(
 Start-Sleep -Seconds 3
 
 Write-Host "Starting host client with room '$RoomName' and name '$PlayerName' ..." -ForegroundColor Green
-& $clientPython (Join-Path $clientDir "client.py") --server $serverUrl --room $RoomName --name $PlayerName
+    & $clientPython (Join-Path $clientDir "client.py") --server $serverUrl --room $RoomName --name $PlayerName
+}
+catch {
+    Write-Host ""
+    Write-Host "ERROR: $_" -ForegroundColor Red
+    Write-Host ""
+}
+finally {
+    Write-Host "Press Enter to close this window..."
+    $null = Read-Host
+}

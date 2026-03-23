@@ -10,6 +10,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$Host.UI.RawUI.WindowTitle = "AC-Netplay Guest"
+
+try {
 
 function Test-RepoRoot([string]$Path) {
     if (-not $Path) { return $false }
@@ -95,4 +98,14 @@ $clientPython = Join-Path $clientVenv "Scripts\python.exe"
 $serverUrl = "ws://$HostIP`:$Port"
 
 Write-Host "Starting guest client for $serverUrl in room '$RoomName' ..." -ForegroundColor Green
-& $clientPython (Join-Path $clientDir "client.py") --server $serverUrl --room $RoomName --name $PlayerName
+    & $clientPython (Join-Path $clientDir "client.py") --server $serverUrl --room $RoomName --name $PlayerName
+}
+catch {
+    Write-Host ""
+    Write-Host "ERROR: $_" -ForegroundColor Red
+    Write-Host ""
+}
+finally {
+    Write-Host "Press Enter to close this window..."
+    $null = Read-Host
+}
