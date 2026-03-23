@@ -122,14 +122,19 @@ class DolphinMemory:
         import ctypes
         import ctypes.wintypes as wt
         self._kernel32 = ctypes.windll.kernel32
-        PROCESS_VM_READ = 0x0010
-        PROCESS_VM_WRITE = 0x0020
-        PROCESS_VM_OPERATION = 0x0008
-        PROCESS_QUERY_INFORMATION = 0x0400
-        access = (PROCESS_VM_READ | PROCESS_VM_WRITE |
-                  PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION)
-        if self._pid:
-            self._hproc = self._kernel32.OpenProcess(access, False, self._pid)
+        self._win_access = 0x0010 | 0x0020 | 0x0008 | 0x0400  # VM_READ|WRITE|OP|QUERY_INFO
+        self._hproc = None
+
+    def _open_process_windows(self) -> None:
+        """Open a handle to the Dolphin process (must be called after PID is known)."""
+        if self._hproc:
+            return
+        self._hproc = self._kernel32.OpenProcess(self._win_access, False, self._pid)
+        if not self._hproc:
+            raise RuntimeError(
+                f"OpenProcess failed for PID {self._pid}. "
+                "Try running as administrator."
+            )
 
     # ------------------------------------------------------------------
     # Attach / detect
@@ -146,6 +151,7 @@ class DolphinMemory:
             self._maps_path = f"/proc/{self._pid}/maps"
             self._mem1_host_base = self._scan_mem1_linux()
         elif self._system == "Windows":
+            self._open_process_windows()
             self._mem1_host_base = self._scan_mem1_windows()
         elif self._system == "Darwin":
             self._mem1_host_base = self._scan_mem1_macos()

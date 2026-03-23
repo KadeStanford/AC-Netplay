@@ -108,6 +108,15 @@ $clientPython = Join-Path $clientVenv "Scripts\python.exe"
 
 $serverUrl = "ws://$ServerHostForClient`:$Port"
 
+# Show LAN IP so the guest knows what to type
+$lanIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' -and $_.PrefixOrigin -ne 'WellKnown' } | Select-Object -First 1).IPAddress
+if ($lanIP) {
+    Write-Host ""
+    Write-Host "=== Your LAN IP: $lanIP ===" -ForegroundColor Yellow
+    Write-Host "Tell the guest to enter: $lanIP" -ForegroundColor Yellow
+    Write-Host ""
+}
+
 Write-Host "Launching relay server in a new PowerShell window..." -ForegroundColor Cyan
 $serverScript = Join-Path $serverDir "server.py"
 $serverCmd = "& `"$serverPython`" `"$serverScript`" --host `"$BindHost`" --port $Port --log-level $LogLevel"

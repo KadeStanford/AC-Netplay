@@ -10,6 +10,8 @@ echo.
 set "INSTALL_DIR=%USERPROFILE%\AC-Netplay"
 set "TARGET_PS1=%INSTALL_DIR%\tools\windows\start_guest_one_click.ps1"
 
+set /p HOST_IP="Enter the Host's IP address (e.g. 192.168.1.50): "
+
 if not exist "%TARGET_PS1%" goto :download
 
 REM Update existing repo
@@ -45,7 +47,7 @@ if not exist "%TARGET_PS1%" (
     goto :done
 )
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TARGET_PS1%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TARGET_PS1%" -HostIP "%HOST_IP%"
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
