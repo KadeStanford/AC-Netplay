@@ -9,7 +9,7 @@ echo.
 echo Fetching and running launcher...
 echo.
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((Invoke-WebRequest 'https://raw.githubusercontent.com/KadeStanford/AC-Netplay/main/tools/windows/start_host_one_click.ps1' -UseBasicParsing).Content))"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $r = Invoke-WebRequest 'https://raw.githubusercontent.com/KadeStanford/AC-Netplay/main/tools/windows/start_host_one_click.ps1' -UseBasicParsing; if (-not $r -or -not $r.Content) { throw 'Download failed - check your internet connection' }; & ([scriptblock]::Create($r.Content))"
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
