@@ -88,6 +88,63 @@ python client.py --server ws://<HOST_IP>:9000 --room MyTown --name YourName
 
 Both players join the same `--room`. The player who wants to host their town opens the gate in-game; the other player walks through the train station.
 
+### Windows one-click launchers
+
+If you are on Windows PowerShell, use the prefilled test launchers.
+They now work in two modes:
+
+- Run from inside this repo.
+- Run as a standalone script copied anywhere. If AC-Netplay is not found, the script auto-downloads it to `~/AC-Netplay`.
+
+Use these commands:
+
+```powershell
+# Host PC: starts relay server + host client
+powershell -ExecutionPolicy Bypass -File .\tools\windows\start_host_one_click.ps1
+
+# Guest PC: starts guest client (default HostIP is 127.0.0.1 for same-PC testing)
+powershell -ExecutionPolicy Bypass -File .\tools\windows\start_guest_one_click.ps1
+
+# Server-only: starts relay server
+powershell -ExecutionPolicy Bypass -File .\tools\windows\start_server_one_click.ps1
+```
+
+Default test values in these scripts are valid and matching:
+
+- `RoomName`: `TestRoom01`
+- `Host player name`: `HostPlayer01`
+- `Guest player name`: `GuestPlayer01`
+- `Port`: `9000`
+
+These launchers also auto-install AC-Netplay Gecko codes into Dolphin for `GAFE01` by writing to Dolphin's game config INI:
+
+- Default Dolphin config path auto-detected: `~/Documents/Dolphin Emulator`
+- Fallback path: `~/OneDrive/Documents/Dolphin Emulator`
+- Target file: `GameSettings/GAFE01.ini`
+
+You can disable this behavior with `-AutoInstallGeckoCodes $false`, or point to a custom Dolphin user folder with `-DolphinUserPath`.
+
+To override values:
+
+```powershell
+# Host with custom room/name
+powershell -ExecutionPolicy Bypass -File .\tools\windows\start_host_one_click.ps1 -RoomName MyTown -PlayerName Alice
+
+# Guest with host LAN/public IP
+powershell -ExecutionPolicy Bypass -File .\tools\windows\start_guest_one_click.ps1 -HostIP 192.168.1.50 -RoomName MyTown -PlayerName Bob
+
+# Use a custom Dolphin user path (portable Dolphin setups)
+powershell -ExecutionPolicy Bypass -File .\tools\windows\start_guest_one_click.ps1 -HostIP 192.168.1.50 -DolphinUserPath D:\DolphinUser
+powershell -ExecutionPolicy Bypass -File .\tools\windows\start_server_one_click.ps1 -DolphinUserPath D:\DolphinUser
+
+# Disable auto Gecko installation
+powershell -ExecutionPolicy Bypass -File .\tools\windows\start_host_one_click.ps1 -AutoInstallGeckoCodes $false
+powershell -ExecutionPolicy Bypass -File .\tools\windows\start_server_one_click.ps1 -AutoInstallGeckoCodes $false
+
+# Standalone script copy: choose where repo should be auto-installed
+powershell -ExecutionPolicy Bypass -File .\start_guest_one_click.ps1 -InstallDir C:\Games\AC-Netplay -HostIP 203.0.113.42
+```
+
 ---
 
 ## Repository Layout
