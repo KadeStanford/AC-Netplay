@@ -9,9 +9,10 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Host.UI.RawUI.WindowTitle = "AC-Netplay Server"
 
 try {
+
+$Host.UI.RawUI.WindowTitle = "AC-Netplay Server"
 
 function Test-RepoRoot([string]$Path) {
     if (-not $Path) { return $false }
