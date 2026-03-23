@@ -13,6 +13,7 @@ function Resolve-DolphinUserPath([string]$OverridePath) {
     }
 
     $candidates = @(
+        (Join-Path $env:APPDATA "Dolphin Emulator"),
         (Join-Path $env:USERPROFILE "Documents\Dolphin Emulator"),
         (Join-Path $env:USERPROFILE "OneDrive\Documents\Dolphin Emulator")
     )
