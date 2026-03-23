@@ -118,6 +118,17 @@ if ($lanIP) {
 }
 
 Write-Host "Launching relay server in a new PowerShell window..." -ForegroundColor Cyan
+
+# Kill any leftover server on the same port
+$existing = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+if ($existing) {
+    $existing | ForEach-Object {
+        Write-Host "Killing leftover process on port $Port (PID $($_.OwningProcess))..." -ForegroundColor Yellow
+        Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Seconds 1
+}
+
 $serverScript = Join-Path $serverDir "server.py"
 $serverCmd = "& `"$serverPython`" `"$serverScript`" --host `"$BindHost`" --port $Port --log-level $LogLevel"
 Start-Process powershell -ArgumentList @(
