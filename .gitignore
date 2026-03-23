@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Patch output files
+*.xdelta
+*.xdelta3
+
+# ISO / ROM files — never commit game images
+*.iso
+*.gcm
+*.nkit.iso
+*.rvz
+*.wbfs
+*.ciso
+
+# Memory card images
+*.raw
+*.gci
+*.mci
+
+# Editor / OS
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+
+# Test output
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
