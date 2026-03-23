@@ -33,8 +33,9 @@ Optionally, **Gecko codes** can be applied via Dolphin's cheat system to add dee
 | Player appearance sync | ✅ Implemented |
 | Inventory / item sync | ✅ Implemented |
 | Chat messages | ✅ Implemented |
-| Gate auto-open code | ✅ Gecko code provided |
+| In-game town browser (train station) | ✅ Implemented |
 | Visitor name injection | ✅ Gecko code provided |
+| Visitor spawn (no memory card needed) | ✅ Gecko code provided |
 | xdelta patch generation | ✅ Tool provided |
 | Self-hosted relay server | ✅ Implemented |
 
@@ -48,45 +49,65 @@ Optionally, **Gecko codes** can be applied via Dolphin's cheat system to add dee
 - Python 3.10+
 - An **unmodified** Animal Crossing (US, GAFE01) ISO or GCM
 
-### 1 — Apply Gecko codes (recommended)
+### 1 — Install dependencies
 
-Copy the contents of [`gecko_codes/ac_netplay.txt`](gecko_codes/ac_netplay.txt) into Dolphin's cheat manager for GAFE01, then enable all codes.
+```bash
+# Relay server (run once on the hosting machine)
+cd server && pip install -r requirements.txt && cd ..
 
-### 2 — (Optional) Generate an xdelta patch
+# Client (run on every player's machine)
+cd client && pip install -r requirements.txt && cd ..
+```
 
-If you want a binary patch instead of Gecko codes:
+### 2 — Apply Gecko codes (required for visitor spawning)
+
+1. In Dolphin, right-click **Animal Crossing** → **Properties** → **Gecko Codes** tab.
+2. Click **Add New Code** and paste each block from [`gecko_codes/ac_netplay.txt`](gecko_codes/ac_netplay.txt) one at a time.
+3. Check the checkbox next to **every** AC-Netplay code to enable it.
+
+> See [`gecko_codes/README.md`](gecko_codes/README.md) for what each code does.
+
+### 3 — (Optional) Generate an xdelta patch instead of Gecko codes
 
 ```bash
 cd patch
 pip install -r requirements.txt
 python generate_patch.py --iso path/to/GAFE01.iso
+xdelta3 -d -s GAFE01_original.iso ac_netplay.xdelta GAFE01_patched.iso
 ```
 
-Apply the resulting `ac_netplay.xdelta` with [xdelta3](https://github.com/jmacd/xdelta):
+Use `GAFE01_patched.iso` in Dolphin — no Gecko codes needed.
 
-```bash
-xdelta3 -d -s original.iso ac_netplay.xdelta patched.iso
-```
-
-### 3 — Start the relay server (host only)
+### 4 — Start the relay server (the host runs this once)
 
 ```bash
 cd server
-pip install -r requirements.txt
 python server.py --port 9000
 ```
 
-Open port 9000 (TCP) in your firewall / router. Share your public IP with friends.
+Open **port 9000 TCP** in your firewall/router and share your public IP with friends.
 
-### 4 — Connect each player
+### 5 — Host: start the client and load your town
+
+Load your save in Dolphin (get past the title screen), then:
 
 ```bash
 cd client
-pip install -r requirements.txt
-python client.py --server ws://<HOST_IP>:9000 --room MyTown --name YourName
+python client.py --server ws://<YOUR_IP>:9000 --room MyTown --name YourName
 ```
 
-Both players join the same `--room`. The player who wants to host their town opens the gate in-game; the other player walks through the train station.
+Your town is now open. Visitors will appear automatically when they join.
+
+### 6 — Visitor: join a town in-game (browse mode)
+
+Load your save in Dolphin, then start the client **without** `--room`:
+
+```bash
+cd client
+python client.py --server ws://<HOST_IP>:9000 --name YourName
+```
+
+Walk your character **north to the train station** (where Porter lives). An overlay will appear listing available towns — use the **D-pad** to select one and press **A** to join. Your character will arrive at the train station of the host's town, just like a real visit.
 
 ---
 

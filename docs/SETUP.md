@@ -40,7 +40,7 @@ The AC-Netplay client reads/writes Dolphin's emulated RAM directly via the OS pr
 
 ## Part 2 — Applying Gecko Codes
 
-Gecko codes add deeper integration (automatic gate opening, visitor name display, etc.). They are **recommended but optional** — the client works without them using pure memory R/W.
+Gecko codes add deeper integration (visitor spawning without a memory card, visitor name display, in-game town browser at the train station, etc.). They are **required** for the visitor spawn mechanic to work correctly.
 
 1. In Dolphin, right-click **Animal Crossing** in the game list → **Properties**.
 2. Go to the **Gecko Codes** tab.
@@ -145,6 +145,16 @@ The client needs to attach to a running Dolphin process with Animal Crossing act
 
 ### Start client
 
+**Browse mode (recommended for visitors)** — omit `--room` and choose a town in-game:
+
+```bash
+python client.py \
+  --server ws://HOST_IP:9000 \
+  --name YourName
+```
+
+**Direct-join mode** — specify a room name to skip the in-game browser:
+
 ```bash
 python client.py \
   --server ws://HOST_IP:9000 \
@@ -157,22 +167,41 @@ Options:
 | Flag | Default | Description |
 |---|---|---|
 | `--server` | `ws://localhost:9000` | Relay server URL |
-| `--room` | required | Room name to join |
-| `--name` | required | Your player name |
-| `--password` | `""` | Room password (if set) |
+| `--room` | `""` | Room to join directly — omit to use in-game browse mode |
+| `--name` | **required** | Your player name (max 8 chars) |
+| `--password` | `""` | Room password (if set by the host) |
 | `--player-slot` | `0` | Which player slot you are (0–3) |
 | `--tick-rate` | `30` | State updates per second |
 | `--interp-ms` | `100` | Interpolation buffer in milliseconds |
-| `--log-level` | `INFO` | Logging level |
+| `--dolphin-pid` | auto | Dolphin process ID (auto-detected) |
+| `--log-level` | `INFO` | Logging level (DEBUG / INFO / WARNING / ERROR) |
 
 ### What you will see
+
+**Direct-join mode** (`--room` specified):
 
 ```
 [INFO] Attaching to Dolphin (PID 12345)...
 [INFO] Verified game ID: GAFE01
 [INFO] Connected to relay server ws://1.2.3.4:9000
 [INFO] Joined room 'MyTown' (1 player)
+[INFO] Role: host
 [INFO] Sending state at 30 Hz
+```
+
+**Browse mode** (no `--room`):
+
+```
+[INFO] Attaching to Dolphin (PID 12345)...
+[INFO] Verified game ID: GAFE01
+[INFO] Connected to relay server ws://1.2.3.4:9000
+[INFO] In-game browse mode active — walk to the train station (north of town) to see available towns, then use D-pad + A to join one
+[INFO] Room list updated: 2 room(s) available
+[INFO] In-game selection: joining 'AliceTown' (town 'Timberland')
+[INFO] Joined room 'AliceTown' (2 player(s))
+[INFO] Role: visitor
+[INFO] Applied host town grid (town='Timberland', 21504 bytes)
+[INFO] Teleported to host town arrival position (56.0, 0.0, 80.0)
 ```
 
 ---
