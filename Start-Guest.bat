@@ -7,34 +7,21 @@ echo  AC-Netplay Guest Launcher
 echo ================================================
 echo.
 
-set "PS1_SCRIPT=%~dp0tools\windows\start_guest_one_click.ps1"
 set "INSTALL_DIR=%USERPROFILE%\AC-Netplay"
-set "INSTALL_SCRIPT=%INSTALL_DIR%\tools\windows\start_guest_one_click.ps1"
+set "TARGET_PS1=%INSTALL_DIR%\tools\windows\start_guest_one_click.ps1"
 
-if exist "%PS1_SCRIPT%" (
-    set "TARGET_PS1=%PS1_SCRIPT%"
-    goto :run
-)
-
-if exist "%INSTALL_SCRIPT%" (
-    set "TARGET_PS1=%INSTALL_SCRIPT%"
-    goto :run
-)
-
-echo Repo not found next to this file. Downloading AC-Netplay to %INSTALL_DIR% ...
-echo.
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
-    "if (Get-Command git -ErrorAction SilentlyContinue) { git clone --depth 1 https://github.com/KadeStanford/AC-Netplay.git '%INSTALL_DIR%' } else { $z='%INSTALL_DIR%'; New-Item -ItemType Directory -Path $z -Force | Out-Null; $t=Join-Path $env:TEMP 'acnp.zip'; Invoke-WebRequest 'https://codeload.github.com/KadeStanford/AC-Netplay/zip/refs/heads/main' -OutFile $t; Expand-Archive $t (Join-Path $env:TEMP 'acnp') -Force; Copy-Item (Join-Path $env:TEMP 'acnp\AC-Netplay-main\*') $z -Recurse -Force }"
-
-if not exist "%INSTALL_SCRIPT%" (
+if not exist "%TARGET_PS1%" (
+    echo Downloading AC-Netplay to %INSTALL_DIR% ...
     echo.
-    echo [ERROR] Download failed. Could not find the script at:
-    echo   %INSTALL_SCRIPT%
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if (Get-Command git -ErrorAction SilentlyContinue) { git clone --depth 1 https://github.com/KadeStanford/AC-Netplay.git '%INSTALL_DIR%' } else { New-Item -ItemType Directory -Path '%INSTALL_DIR%' -Force | Out-Null; $t=Join-Path $env:TEMP 'acnp.zip'; Invoke-WebRequest 'https://codeload.github.com/KadeStanford/AC-Netplay/zip/refs/heads/main' -OutFile $t; $x=Join-Path $env:TEMP 'acnp_extract'; Expand-Archive $t $x -Force; Copy-Item (Join-Path $x 'AC-Netplay-main' '*') '%INSTALL_DIR%' -Recurse -Force }"
+    echo.
+)
+
+if not exist "%TARGET_PS1%" (
+    echo [ERROR] Could not download AC-Netplay. Check your internet connection.
     goto :done
 )
-set "TARGET_PS1=%INSTALL_SCRIPT%"
 
-:run
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TARGET_PS1%"
 
 if %ERRORLEVEL% NEQ 0 (
