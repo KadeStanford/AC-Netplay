@@ -186,8 +186,8 @@ Both players end up **in the host's town at the same time**:
 - The **host** stays in their own town throughout.  Their character moves normally.
 - The **visitor's** Dolphin instance automatically receives the host's town data
   the moment they connect.  The visitor's game renders the host's town (terrain,
-  placed items, furniture), and the visitor's character is placed near the gate
-  so they "arrive" without needing to walk through the train station.
+  placed items, furniture), and the visitor's character is placed near the train
+  station so they "arrive" just as a real visitor would.
 - On the **host's screen**, the visitor's character appears as a visitor NPC
   moving in real time.
 - On the **visitor's screen**, the host's character appears as a visitor NPC,
@@ -201,12 +201,32 @@ Both players end up **in the host's town at the same time**:
    ```bash
    python client.py --server ws://HOST_IP:9000 --room YourRoomName --name YourName
    ```
-4. Walk to the **gate** (south of town) and talk to Copper — or let the
-   Gecko code open it automatically.
+4. The Gecko code will handle visitor spawning automatically via the train
+   station mechanic — no additional in-game steps are required on the host side.
 5. Tell your friend your server address and room name.  Once they connect,
    their character will appear in your town automatically.
 
-### Visiting a town
+### Visiting a town — in-game browse mode (recommended)
+
+This is the native in-game flow: you discover available towns directly inside
+Animal Crossing, just like visiting a friend's town in the original game.
+
+1. Load your Animal Crossing save.
+2. Start the client **without** `--room`:
+   ```bash
+   python client.py --server ws://HOST_IP:9000 --name YourName
+   ```
+3. Walk your character north to the **train station**.
+4. An on-screen overlay will appear listing available towns (written to the
+   scratch area by the client and rendered by Gecko code [9]).  Use the
+   **D-pad** to highlight a town and press **A** to join.
+5. The client detects your in-game selection and automatically joins that room.
+   Your character is placed at the train station of the host's town — just as
+   if Porter had sent you there on the train.
+
+### Visiting a town — direct-join mode
+
+If you already know the room name, you can skip the in-game browser:
 
 1. Load your Animal Crossing save.
 2. Start the client pointing to the **same** server and room as the host:
@@ -215,7 +235,7 @@ Both players end up **in the host's town at the same time**:
    ```
 3. The client will automatically:
    - Receive the host's town grid and write it to your Dolphin RAM.
-   - Teleport your character to the gate-entrance area of the host's town.
+   - Teleport your character to the train station arrival area of the host's town.
 4. You are now in the host's town.  Walk around, pick up items, and interact
    with the environment just as you would in your own game.
 
@@ -243,9 +263,15 @@ Both players end up **in the host's town at the same time**:
 
 ### Visitor character not appearing in-game
 
-- Make sure Gecko codes are active **and** the gate is open.
-- Try talking to Copper and opening the gate manually.
+- Make sure Gecko codes are active and the visitor-spawn codes ([3] and [5]) are enabled.
+- If using browse mode, confirm the room browser overlay appeared at the train station — if not, the Gecko code [9] may need its hook address verified.
 - Increase `--interp-ms` if your connection is laggy.
+
+### Room list not showing at the train station
+
+- Confirm the relay server is reachable and at least one host room is open.
+- Check the client log for "Room list updated: N room(s) available".
+- Verify Gecko codes [8] and [9] are enabled in Dolphin.
 
 ### Items desyncing
 

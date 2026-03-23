@@ -120,13 +120,18 @@ The visitor actor has the **same layout** as the player actor above, plus:
 
 ---
 
-## Gate / Multiplayer State
+## Train Station / Multiplayer State
+
+The train station sits at the northern edge of every AC GameCube town.
+Visiting players arrive and depart here via Porter (the station master).
+AC-Netplay writes to these addresses to trigger visitor spawning without
+requiring the original memory-card swap.
 
 | Address | Size | Type | Description |
 |---|---|---|---|
-| `0x803B8000` | 1 | u8 | Gate state: 0=closed, 1=open, 2=visitor arriving |
+| `0x803B8000` | 1 | u8 | Visitor arrival state: 0=idle, 1=visitor arriving, 2=visitor present |
 | `0x803B8001` | 1 | u8 | Number of current visitors (0–4) |
-| `0x803B8002` | 1 | u8 | Local player slot of gate opener |
+| `0x803B8002` | 1 | u8 | Local player slot of the arriving visitor |
 | `0x803B8010` | 4 | u32 | Visitor arrival timer |
 | `0x803B8020` | 8×4 | u32[8] | Visitor actor ptr table |
 
@@ -166,6 +171,30 @@ Total town size: 112 × 96 squares.
 | `0x803D1004` | 1 | Museum wings unlocked flags |
 | `0x803D1010` | 2 | Current background music track ID |
 | `0x803D1020` | 4 | Day of week (0=Sun) |
+
+---
+
+## AC-Netplay Scratch Area (`0x803BFF00`–`0x803BFFFF`)
+
+This 256-byte region is unused by the vanilla game and is reserved by
+AC-Netplay for runtime communication between the Python client and the
+Gecko-code hooks.
+
+| Address | Size | Description |
+|---|---|---|
+| `0x803BFF00` | 8 | Visitor 0 name buffer (written by client, rendered by Gecko code [4]) |
+| `0x803BFF08` | 8 | Visitor 1 name buffer |
+| `0x803BFF10` | 8 | Visitor 2 name buffer |
+| `0x803BFF18` | 8 | Visitor 3 name buffer |
+| `0x803BFF20` | 1 | Room browser: available room count (0–4) |
+| `0x803BFF21` | 1 | Room browser: selected room index (Gecko code writes on D-pad input) |
+| `0x803BFF22` | 1 | Room browser: join trigger — Gecko sets to 1 when player presses A; Python reads & clears |
+| `0x803BFF23` | 1 | Room browser: browser active flag — Python sets to 1 near the train station |
+| `0x803BFF24` | 20 | Room entry 0: 6-byte town name + 8-byte host name + player_count + has_password + 4-byte room_name |
+| `0x803BFF38` | 20 | Room entry 1 |
+| `0x803BFF4C` | 20 | Room entry 2 |
+| `0x803BFF60` | 20 | Room entry 3 (max 4 entries, 20 bytes each) |
+| `0x803BFF80` | 256 | Chat overlay text buffer (null-terminated, written by client) |
 
 ---
 

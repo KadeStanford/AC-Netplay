@@ -34,6 +34,7 @@ RATE_LIMITS: dict[str, float] = {
     "GAME_EVENT": 10.0,
     "CHAT": 2.0,
     "TOWN_DATA": 1.0,   # bulk one-time message; once per second max
+    "LIST_ROOMS": 1.0,  # room discovery; throttled to prevent polling abuse
     "__default__": 5.0,
 }
 
@@ -129,6 +130,12 @@ class NetplayServer:
                     if room and player:
                         await self.room_manager.remove_player(room, player)
                         room = None
+
+                elif msg_type == "LIST_ROOMS":
+                    await websocket.send(json.dumps({
+                        "type": "ROOM_LIST",
+                        "rooms": self.room_manager.list_rooms(),
+                    }))
 
                 elif msg_type in ("PLAYER_STATE", "APPEARANCE", "GAME_EVENT", "CHAT", "TOWN_DATA"):
                     if room and player:

@@ -205,8 +205,8 @@ Discrete game events (item pickup/drop, entering building, etc.).
 | `ITEM_DIG` | Player dug up buried item |
 | `ENTER_BUILDING` | Player entered a building |
 | `EXIT_BUILDING` | Player exited a building |
-| `GATE_OPEN` | Host opened the gate |
-| `GATE_CLOSE` | Host closed the gate |
+| `GATE_OPEN` | Host train-station visitor arrival is active |
+| `GATE_CLOSE` | Host train-station visitor arrival ended |
 | `TIME_SYNC` | Host broadcasts current in-game time |
 
 #### `TOWN_DATA`
@@ -232,8 +232,8 @@ The `grid` field is the raw town grid (96 × 112 × 2 = 21,504 bytes, big-endian
 | `grid` | string | Base64-encoded town grid (exactly 21,504 bytes decoded) |
 
 **Visitor behaviour on receipt:** write the grid to `0x803C0000` in Dolphin RAM,
-then teleport the local player character to the gate-arrival position
-`(56.0, 0.0, 80.0)` so they are inside the host's town.
+then teleport the local player character to the train-station arrival position
+`(56.0, 0.0, 80.0)` so they appear inside the host's town near the station.
 
 #### `CHAT`
 
@@ -245,6 +245,19 @@ then teleport the local player character to the gate-arrival position
 ```
 
 `text` is limited to 255 UTF-8 bytes. The client truncates longer messages.
+
+#### `LIST_ROOMS`
+
+Sent by a client (before or after joining a room) to request the current list
+of open rooms on the server.  Used by the in-game room browser to populate the
+town-selection overlay shown at the train station (north of town, where Porter
+lives).
+
+```json
+{ "type": "LIST_ROOMS" }
+```
+
+No additional fields.  Rate-limited to 1 request per second.
 
 #### `LEAVE_ROOM`
 

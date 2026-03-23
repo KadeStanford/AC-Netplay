@@ -86,6 +86,26 @@ class RoomManager:
                          player.player_id, room_name, len(room.players), self.max_players)
             return room
 
+    def list_rooms(self) -> list[dict]:
+        """
+        Return a summary of all currently open rooms.
+
+        Each entry is a plain dict suitable for JSON serialisation and
+        matches the ``RoomEntry`` dataclass on the client side.
+        """
+        result = []
+        for room in self._rooms.values():
+            host = room.players.get(room.host_id)
+            result.append({
+                "room_name": room.name,
+                "town_name": host.town_name if host else "",
+                "host_name": host.player_name if host else "",
+                "player_count": len(room.players),
+                "max_players": self.max_players,
+                "has_password": bool(room.password),
+            })
+        return result
+
     async def remove_player(self, room: Room, player: Player) -> None:
         async with self._lock:
             room.players.pop(player.player_id, None)

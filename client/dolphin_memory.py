@@ -19,7 +19,7 @@ from typing import Optional
 
 import psutil
 
-from state import PlayerState, AppearanceState, TownData
+from state import PlayerState, AppearanceState, TownData, RoomEntry
 
 logger = logging.getLogger("ac_netplay.dolphin_memory")
 
@@ -52,8 +52,8 @@ TOWN_HEIGHT = 96   # tiles
 TOWN_GRID_SIZE = TOWN_WIDTH * TOWN_HEIGHT * 2  # 21,504 bytes
 
 # World-space position where a visitor's character is placed when the host
-# town data is applied.  This is near the train-station / gate entrance in
-# the southern-centre of the town map.
+# town data is applied.  This is near the train station exit at the northern
+# edge of the town map (high Z = north in AC GameCube world-space).
 VISITOR_ARRIVAL_POS = (56.0, 0.0, 80.0)  # (X, Y, Z)
 
 # In-memory actor pointer chain for local player
@@ -90,6 +90,39 @@ ACT_VISIT_HAIR = 0x39       # u8
 ACT_VISIT_HAIR_COLOR = 0x3A # u8
 ACT_VISIT_GENDER = 0x3B     # u8
 ACT_VISIT_SHIRT = 0x3C      # u16
+
+# ---------------------------------------------------------------------------
+# In-game room browser scratch area
+#
+# 0x803BFF20–0x803BFF73 (84 bytes) — written by the Python client, read by
+# the Gecko code that renders the room selection menu at the train station.
+# The train station is at the northern edge of every AC GameCube town; it is
+# where Porter lives and where visiting players arrive via the in-game train.
+#
+# Layout:
+#   +0x00  u8   room_count       — number of available rooms (0–4)
+#   +0x01  u8   selected_index   — which room is highlighted (Gecko writes)
+#   +0x02  u8   join_trigger     — 1 = player confirmed; Python reads & clears
+#   +0x03  u8   browser_active   — 1 = menu is currently on-screen
+#   +0x04  …    entries          — up to 4 × ROOM_BROWSER_ENTRY_SIZE bytes
+#
+# Each entry (ROOM_BROWSER_ENTRY_SIZE = 20 bytes):
+#   +0x00  char[6]   town_name   (null-padded, AC encoding)
+#   +0x06  char[8]   host_name   (null-padded)
+#   +0x0E  u8        player_count
+#   +0x0F  u8        has_password  (0 or 1)
+#   +0x10  char[4]   room_name   (first 4 chars, for display disambiguation)
+# ---------------------------------------------------------------------------
+
+ROOM_BROWSER_BASE = 0x803BFF20
+
+ROOM_BROWSER_COUNT_OFF   = 0x00
+ROOM_BROWSER_SEL_OFF     = 0x01
+ROOM_BROWSER_TRIGGER_OFF = 0x02
+ROOM_BROWSER_ACTIVE_OFF  = 0x03
+ROOM_BROWSER_ENTRY_OFF   = 0x04
+ROOM_BROWSER_ENTRY_SIZE  = 20
+ROOM_BROWSER_MAX_ROOMS   = 4
 
 
 class DolphinMemory:
@@ -476,7 +509,7 @@ class DolphinMemory:
             logger.debug("write_visitor_appearance slot=%d: %s", slot, e)
 
     def write_gate_state(self, state: int) -> None:
-        """Set the gate open (1) or closed (0)."""
+        """Write the train-station visitor-arrival state byte (0=idle, 1=visitor arriving)."""
         self.write_u8(GATE_STATE_ADDR, state & 0xFF)
 
     def clear_visitor_slot(self, slot: int) -> None:
@@ -552,3 +585,80 @@ class DolphinMemory:
             self.write_f32(actor + ACT_POS_Z, z)
         except (OSError, struct.error, ValueError) as e:
             logger.debug("teleport_local_player slot=%d: %s", slot, e)
+
+    # ------------------------------------------------------------------
+    # In-game room browser helpers
+    # ------------------------------------------------------------------
+
+    def write_room_browser_list(self, entries: list) -> None:
+        """
+        Write a list of available :class:`RoomEntry` objects into the room
+        browser scratch area so the Gecko code can render them in-game.
+
+        Writes at most ROOM_BROWSER_MAX_ROOMS (4) entries.  Any previously
+        written entries beyond *len(entries)* are cleared.
+        """
+        count = min(len(entries), ROOM_BROWSER_MAX_ROOMS)
+        self.write_u8(ROOM_BROWSER_BASE + ROOM_BROWSER_COUNT_OFF, count)
+        for i in range(ROOM_BROWSER_MAX_ROOMS):
+            base = (ROOM_BROWSER_BASE + ROOM_BROWSER_ENTRY_OFF
+                    + i * ROOM_BROWSER_ENTRY_SIZE)
+            if i < count:
+                entry = entries[i]
+                self.write_str(base + 0, entry.town_name[:6], 6)
+                self.write_str(base + 6, entry.host_name[:8], 8)
+                self.write_u8(base + 14, entry.player_count)
+                self.write_u8(base + 15, 1 if entry.has_password else 0)
+                self.write_str(base + 16, entry.room_name[:4], 4)
+            else:
+                # Clear unused slot
+                self._write(base, b"\x00" * ROOM_BROWSER_ENTRY_SIZE)
+
+    def read_room_browser_selection(self) -> int:
+        """
+        Return the currently highlighted room index (0–3) as written by the
+        Gecko code in response to D-pad input.
+        """
+        return self.read_u8(ROOM_BROWSER_BASE + ROOM_BROWSER_SEL_OFF)
+
+    def read_room_browser_trigger(self) -> bool:
+        """
+        Return *True* if the player has confirmed a room selection in-game
+        (the Gecko code sets the trigger byte to 1 when A is pressed).
+        """
+        return self.read_u8(ROOM_BROWSER_BASE + ROOM_BROWSER_TRIGGER_OFF) == 1
+
+    def clear_room_browser_trigger(self) -> None:
+        """Reset the join-trigger byte to 0 after the Python client has handled it."""
+        self.write_u8(ROOM_BROWSER_BASE + ROOM_BROWSER_TRIGGER_OFF, 0)
+
+    def set_room_browser_active(self, active: bool) -> None:
+        """
+        Set (True) or clear (False) the browser-active flag.
+
+        The Gecko code reads this flag every frame: when 1, it renders the
+        room selection overlay; when 0, the overlay is hidden.
+        """
+        self.write_u8(ROOM_BROWSER_BASE + ROOM_BROWSER_ACTIVE_OFF,
+                      1 if active else 0)
+
+    def read_player_pos(self, slot: int = 0) -> tuple[float, float, float]:
+        """
+        Return the local player's (X, Y, Z) world-space position.
+
+        Used by the room browser to detect when the player is near the train
+        station (Z ≥ STATION_APPROACH_Z_THRESHOLD; high Z = north in AC
+        GameCube world-space).  Returns (0.0, 0.0, 0.0) if the actor cannot
+        be resolved.
+        """
+        actor = self._resolve_player_actor(slot)
+        if actor is None:
+            return (0.0, 0.0, 0.0)
+        try:
+            return (
+                self.read_f32(actor + ACT_POS_X),
+                self.read_f32(actor + ACT_POS_Y),
+                self.read_f32(actor + ACT_POS_Z),
+            )
+        except (OSError, struct.error, ValueError):
+            return (0.0, 0.0, 0.0)

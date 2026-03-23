@@ -170,6 +170,39 @@ class GameEvent:
 
 
 @dataclass
+class RoomEntry:
+    """A single available room returned by the server in response to LIST_ROOMS."""
+
+    room_name: str = ""
+    town_name: str = ""    # host's AC town name (max 6 chars)
+    host_name: str = ""    # host's player name (max 8 chars)
+    player_count: int = 0
+    max_players: int = 4
+    has_password: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "room_name": self.room_name,
+            "town_name": self.town_name,
+            "host_name": self.host_name,
+            "player_count": self.player_count,
+            "max_players": self.max_players,
+            "has_password": self.has_password,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RoomEntry":
+        return cls(
+            room_name=str(d.get("room_name", "")),
+            town_name=str(d.get("town_name", "")),
+            host_name=str(d.get("host_name", "")),
+            player_count=int(d.get("player_count", 0)),
+            max_players=int(d.get("max_players", 4)),
+            has_password=bool(d.get("has_password", False)),
+        )
+
+
+@dataclass
 class TownData:
     """
     Snapshot of the host's town sent to the visitor at connection time.

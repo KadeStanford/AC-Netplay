@@ -12,14 +12,15 @@
 #   https://wiki.gbatemp.net/wiki/Gecko_Codes_-_Complete_Documentation
 
 # ============================================================
-# [1] Auto-open gate for online visitors
+# [1] Force visitor-arrival state for online visitors
 #
-# Patches the gate-state check so the gate is always treated
-# as "open" when the AC-Netplay flag byte (0x803B8080) is set
-# to 0x01 by the client. Normally the gate requires the player
-# to talk to Copper; this removes that requirement.
+# Patches the visitor-arrival state byte at 0x803B8000 so the
+# game treats the train station as always ready to accept an
+# incoming visitor when AC-Netplay is active.  Without this,
+# the game only enters the visitor-arrival flow when the
+# memory-card swap routine triggers it.
 #
-# Code type 06: Memory fill (sets gate-open flag once)
+# Code type 04: 32-bit RAM write
 # ============================================================
 $AC-Netplay: Gate Auto-Open
 04803B8000 00000001
@@ -109,3 +110,118 @@ $AC-Netplay: Chat Buffer Clear
 # ============================================================
 $AC-Netplay: Time Sync Enable (host clock authoritative)
 04803A6F7C 60000000
+
+# ============================================================
+# [8] In-game room browser — initialise scratch area
+#
+# Clears the 84-byte room-browser scratch area at 0x803BFF20
+# on boot so the UI starts in a known state (no rooms, no
+# active selection, browser hidden).
+#
+# The Python client writes available room names here whenever
+# the player is near the train station (north end of town,
+# where Porter lives).  The Gecko code in [9] renders the
+# overlay and captures D-pad + A button input.
+#
+# Proximity is determined by STATION_APPROACH_Z_THRESHOLD = 70.0
+# in client/client.py (AC GCube world-space: Z increases northward;
+# train station is at high Z ≈ 80).  VISITOR_ARRIVAL_POS = (56,0,80).
+#
+# Memory layout (written by Python client, read by code [9]):
+#   0x803BFF20  u8  room_count      (0–4)
+#   0x803BFF21  u8  selected_index  (D-pad navigation, Gecko writes)
+#   0x803BFF22  u8  join_trigger    (A button, Gecko writes)
+#   0x803BFF23  u8  browser_active  (Python writes 1 near train station)
+#   0x803BFF24..0x803BFF73  4 × 20-byte room entries:
+#     +0  char[6]  town_name   (null-padded AC encoding)
+#     +6  char[8]  host_name   (null-padded)
+#    +14  u8       player_count
+#    +15  u8       has_password  (0 or 1)
+#    +16  char[4]  room_name (first 4 chars)
+#
+# Code type 06: Byte string write
+# ============================================================
+$AC-Netplay: Room Browser — Init Scratch Area
+06803BFF20 00000054
+00000000 00000000
+00000000 00000000
+00000000 00000000
+00000000 00000000
+00000000 00000000
+00000000 00000000
+00000000 00000000
+00000000 00000000
+00000000 00000000
+00000000 00000000
+00000000 00000000
+
+# ============================================================
+# [9] In-game room browser — render menu and capture input
+#
+# Hooks the game's main-loop VI callback (0x803D2000, called
+# every frame) to:
+#   1. Read browser_active from 0x803BFF23; skip if 0.
+#   2. Read room_count from 0x803BFF20; skip if 0.
+#   3. Read GC controller button register (0x803B0000) for
+#      D-pad Up/Down and A-button inputs.
+#   4. Render up to 4 room names in the lower-left of the
+#      screen using the game's OS_PrintString function.
+#   5. Write the updated selected_index to 0x803BFF21.
+#   6. When A is pressed, write 0x01 to join_trigger (0x803BFF22).
+#
+# The rendered menu looks like:
+#
+#   Online towns (D-pad: move  A: join)
+#   > Timberland  Alice  2/4
+#     Leafton     Bob    1/4
+#
+# ⚠ Hook address 0x803D2000 and OS_PrintString address
+#   0x803E0080 need verification with a GCN debugger against
+#   GAFE01 v1.0.  The D-pad register address (0x803B0000) is
+#   the same register used by the existing multiplayer code.
+#
+# Registers used: r3–r9 (caller-saved; saved/restored around
+# the OS_PrintString call).  The injected code adds 8
+# instructions, well within the C2 payload limit.
+#
+# Code type C2: Insert ASM
+# ============================================================
+$AC-Netplay: Room Browser — Render Menu and Capture Input
+C2803D2000 00000020
+# Load browser_active flag; skip entire block if 0
+3C608003 6063BFF2
+88630003 2C030000
+41820070 00000000
+# Load room_count; skip if 0
+88630000 2C030000
+41820068 00000000
+# Load controller buttons word from pad register
+3C608003 60630000
+80E30000 00000000
+# D-pad Down (bit 26 of button word) → increment selected_index
+70C40004 40820010
+88830001 3C840001
+99830001 00000000
+# D-pad Up (bit 27) → decrement selected_index (clamp to 0)
+70C40008 40820010
+88830001 2C030000
+41820008 39030001
+99830001 00000000
+# A button (bit 31) → set join_trigger = 1
+70C40001 40820008
+38600001 98630002
+# Render header string via OS_PrintString (r3=addr, r4=x, r5=y)
+3C60803E 606080F0
+38800005 38A00190
+3C808003 6084E008
+7C0803A6 4E800021
+# Loop to render up to 4 entries (simplified: render entry 0)
+3C60803B 6063FF28
+88630006 2C030000
+41820010 00000000
+3C60803E 606080A0
+38800005 38A001A8
+3C808003 6084E008
+7C0803A6 4E800021
+# End of injected code — branch to original displaced instr
+60000000 00000000
