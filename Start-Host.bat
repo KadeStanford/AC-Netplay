@@ -8,18 +8,20 @@ echo ================================================
 echo.
 
 set "URL=https://raw.githubusercontent.com/KadeStanford/AC-Netplay/main/tools/windows/start_host_one_click.ps1"
-set "TMP=%TEMP%\acnp_start_host.ps1"
+set "PSFILE=%TEMP%\acnp_start_host.ps1"
+
+if exist "%PSFILE%" del /f /q "%PSFILE%"
 
 echo Fetching launcher...
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest '%URL%' -OutFile '%TMP%'"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest '%URL%' -OutFile '%PSFILE%'"
 
-if not exist "%TMP%" (
+if not exist "%PSFILE%" (
     echo.
     echo [ERROR] Could not download the launcher. Check your internet connection.
     goto :done
 )
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%TMP%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PSFILE%"
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
