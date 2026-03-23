@@ -103,7 +103,4 @@ catch {
     Write-Host "ERROR: $_" -ForegroundColor Red
     Write-Host ""
 }
-finally {
-    Write-Host "Press Enter to close this window..."
-    $null = Read-Host
-}
+finally {}
