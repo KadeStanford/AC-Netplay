@@ -6,29 +6,16 @@ echo ================================================
 echo  AC-Netplay Host Launcher
 echo ================================================
 echo.
+echo Fetching and running launcher...
+echo.
 
-set "URL=https://raw.githubusercontent.com/KadeStanford/AC-Netplay/main/tools/windows/start_host_one_click.ps1"
-set "PSFILE=%TEMP%\acnp_start_host.ps1"
-
-if exist "%PSFILE%" del /f /q "%PSFILE%"
-
-echo Fetching launcher...
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest '%URL%' -OutFile '%PSFILE%'"
-
-if not exist "%PSFILE%" (
-    echo.
-    echo [ERROR] Could not download the launcher. Check your internet connection.
-    goto :done
-)
-
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PSFILE%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((Invoke-WebRequest 'https://raw.githubusercontent.com/KadeStanford/AC-Netplay/main/tools/windows/start_host_one_click.ps1' -UseBasicParsing).Content))"
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [ERROR] Script exited with code %ERRORLEVEL%.
 )
 
-:done
 echo.
 echo ================================================
 echo  Press any key to close.
