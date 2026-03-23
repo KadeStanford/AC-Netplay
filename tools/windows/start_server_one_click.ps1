@@ -39,12 +39,9 @@ function Ensure-Repo([string]$TargetDir, [string]$GitRepoUrl) {
 
     Write-Host "git not found. Downloading ZIP archive instead..." -ForegroundColor Yellow
     $zipUrl = "https://codeload.github.com/KadeStanford/AC-Netplay/zip/refs/heads/main"
-    $tempRoot = Join-Path $env:TEMP ("ac-netplay-bootstrap-" + [guid]::NewGuid().ToString("N"))
-    $zipPath = Join-Path $tempRoot "ac-netplay.zip"
-    $extractPath = Join-Path $tempRoot "extract"
-
-    New-Item -ItemType Directory -Path $tempRoot | Out-Null
-    New-Item -ItemType Directory -Path $extractPath | Out-Null
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $zipPath = Join-Path $TargetDir "setup.zip"
+    $extractPath = Join-Path $TargetDir "_tmp"
 
     Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
     Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
@@ -55,6 +52,7 @@ function Ensure-Repo([string]$TargetDir, [string]$GitRepoUrl) {
     }
 
     Copy-Item -Path (Join-Path $sourceRoot "*") -Destination $TargetDir -Recurse -Force
+    Remove-Item $extractPath, $zipPath -Recurse -Force
     return $TargetDir
 }
 
